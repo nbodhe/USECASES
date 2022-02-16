@@ -1,0 +1,97 @@
+DOCKER INSTALL:
+----------------
+230  sudo apt update
+231  sudo apt install apt-transport-https ca-certificates curl software-properties-common
+232  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+233  sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+234  apt-cache policy docker-ce
+235  sudo apt install docker-ce -y
+236  sudo systemctl status docker
+
+
+243  docker run -itd --name tomcat1 -p 8081:8080 tomcat:8.0.51-alpine
+244  docker run -itd --name tomcat2 -p 8082:8080 tomcat:8.0.51-alpine
+245  docker run -itd --name tomcat3 -p 8083:8080 tomcat:8.5.41-alpine
+
+NGNIX INSTALL:
+--------------
+246  sudo apt update
+247  sudo apt install nginx
+248  sudo apt install nginx -y
+249  sudo ufw app list
+250  sudo ufw allow 'Nginx HTTP'
+251  sudo ufw status
+252  systemctl status nginx
+
+NGINX SSL CONFIGURATION:
+-------------------------
+260  mkdir /etc/ssl/private
+261  chmod 700 /etc/ssl/private
+262  sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
+263  sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+NGINX REVERSE PROXY CONF:
+-------------------------
+278  vim /etc/nginx/sites-available/tomcat.conf
+279  vim /etc/nginx/nginx.conf 
+280  vim /etc/nginx/sites-available/tomcat.conf
+281  ln -s /etc/nginx/sites-available/tomcat.conf /etc/nginx/sites-enabled/
+282  systemctl restart nginx
+
+
+FILE: /etc/nginx/sites-available/tomcat.conf [ACTIVE PASSIVE CONF]
+---------------------------------------------
+upstream backend {
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8083 backup;
+        }
+
+        server {
+         listen 443 http2 ssl;
+         listen [::]:443 http2 ssl;
+
+         server_name 127.0.0.1;
+
+         ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+         ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+         ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+
+        location /tomcat {
+        	proxy_set_header X-Forwarded-Host $host;
+        	proxy_set_header X-Forwarded-Server $host;
+        	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        	proxy_pass http://backend/;
+        }
+
+}
+
+
+BROWS:
+------
+https://127.0.0.1/tomcat
+
+
+CHECK ACTIVE PASSIVE CONF:
+**************************
+
+STOP ACTIVE TOMCAT1:
+--------------------
+docker stop tomcat1
+
+BROWS:
+------
+https://127.0.0.1/tomcat
+
+
+START ACTIVE TOMCAT1:
+---------------------
+docker start tomcat1
+
+
+BROWS:
+------
+https://127.0.0.1/tomcat
+
+
+
